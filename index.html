@@ -1,581 +1,197 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal de Afiliados</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Portal de Afiliados</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-    <div id="app">
-        <div class="min-h-screen bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-700 flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl shadow-2xl p-8 text-center">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-                <p class="text-gray-600">Carregando...</p>
-            </div>
+  <div id="app"></div>
+
+  <script>
+    const SUPABASE_URL = 'https://tmeqnsplfgfmcawdalrp.supabase.co';
+    const SUPABASE_KEY = 'SUA_ANON_KEY_AQUI';
+
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    let currentUser = null;
+
+    async function checkAuth() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) {
+        await loadUserData(session.user.id);
+      } else {
+        renderLogin();
+      }
+    }
+
+    async function loadUserData(userId) {
+      const { data, error } = await supabaseClient
+        .from('affiliates')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error || !data) {
+        renderLogin();
+        return;
+      }
+
+      currentUser = data;
+      renderDashboard();
+    }
+
+    async function handleLogin() {
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      checkAuth();
+    }
+
+    async function handleRegister() {
+      const name = document.getElementById('registerName').value;
+      const email = document.getElementById('registerEmail').value;
+      const password = document.getElementById('registerPassword').value;
+
+      const { error } = await supabaseClient.auth.signUp({
+        email,
+        password,
+        options: { data: { name } }
+      });
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      alert('Conta criada com sucesso. Faça login.');
+      renderLogin();
+    }
+
+    async function handleLogout() {
+      await supabaseClient.auth.signOut();
+      currentUser = null;
+      renderLogin();
+    }
+
+    async function createNewLink() {
+      const name = prompt('Nome do link:');
+      if (!name) return;
+
+      await supabaseClient.from('affiliate_links').insert([{
+        affiliate_id: currentUser.id,
+        name,
+        url: `https://maiscontrolle.com/precos?aff=${currentUser.affiliate_code}`
+      }]);
+
+      renderDashboard();
+    }
+
+    async function getLinks() {
+      const { data } = await supabaseClient
+        .from('affiliate_links')
+        .select('*')
+        .eq('affiliate_id', currentUser.id)
+        .order('created_at', { ascending: false });
+
+      return data || [];
+    }
+
+    async function getSales() {
+      const { data } = await supabaseClient
+        .from('sales')
+        .select('*')
+        .eq('affiliate_id', currentUser.id)
+        .order('created_at', { ascending: false });
+
+      return data || [];
+    }
+
+    function renderLogin() {
+      document.getElementById('app').innerHTML = `
+        <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 to-blue-600">
+          <div class="bg-white p-8 rounded-xl w-full max-w-md">
+            <h1 class="text-2xl font-bold text-center mb-6">Portal de Afiliados</h1>
+
+            <input id="loginEmail" class="w-full mb-3 p-3 border rounded" placeholder="Email">
+            <input id="loginPassword" type="password" class="w-full mb-3 p-3 border rounded" placeholder="Senha">
+
+            <button onclick="handleLogin()" class="w-full bg-purple-600 text-white py-3 rounded mb-3">Entrar</button>
+
+            <p class="text-center text-sm">
+              Não tem conta?
+              <button onclick="showRegister()" class="text-purple-600">Cadastre-se</button>
+            </p>
+          </div>
         </div>
-    </div>
+      `;
+    }
 
-    <script>
-        const SUPABASE_URL = 'https://tmeqnsplfgfmcawdalrp.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtZXFuc3BsZmdmbWNhd2RhbHJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczNjA1MTUsImV4cCI6MjA3MjkzNjUxNX0.mjMx76OplbQ7wZstoP1gOizDYF7PH2Pj-0plvMdBnTU';
+    function showRegister() {
+      document.getElementById('app').innerHTML = `
+        <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 to-blue-600">
+          <div class="bg-white p-8 rounded-xl w-full max-w-md">
+            <h1 class="text-2xl font-bold text-center mb-6">Criar Conta</h1>
 
-        let supabaseClient = null;
-        let currentUser = null;
+            <input id="registerName" class="w-full mb-3 p-3 border rounded" placeholder="Nome">
+            <input id="registerEmail" class="w-full mb-3 p-3 border rounded" placeholder="Email">
+            <input id="registerPassword" type="password" class="w-full mb-3 p-3 border rounded" placeholder="Senha">
 
-        function initSupabase() {
-            try {
-                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                return true;
-            } catch (error) {
-                console.error('Erro ao inicializar Supabase:', error);
-                alert('Erro ao conectar com o banco de dados');
-                return false;
-            }
-        }
+            <button onclick="handleRegister()" class="w-full bg-purple-600 text-white py-3 rounded mb-3">Criar Conta</button>
 
-        async function checkAuth() {
-            if (!initSupabase()) return;
+            <p class="text-center text-sm">
+              Já tem conta?
+              <button onclick="renderLogin()" class="text-purple-600">Login</button>
+            </p>
+          </div>
+        </div>
+      `;
+    }
 
-            try {
-                const { data: { session } } = await supabaseClient.auth.getSession();
-                if (session) {
-                    await loadUserData(session.user.id);
-                } else {
-                    renderLogin();
-                }
-            } catch (error) {
-                console.error('Erro ao verificar autenticação:', error);
-                renderLogin();
-            }
-        }
+    async function renderDashboard() {
+      const links = await getLinks();
+      const sales = await getSales();
 
-        async function loadUserData(userId) {
-            try {
-                const { data, error } = await supabaseClient.from('affiliates').select('*').eq('id', userId).single();
-                
-                if (error) {
-                    console.error('Erro ao carregar usuário:', error);
-                    renderLogin();
-                    return;
-                }
-                
-                if (data) {
-                    currentUser = data;
-                    if (currentUser.is_admin) {
-                        await renderAdminDashboard();
-                    } else {
-                        await renderDashboard();
-                    }
-                } else {
-                    renderLogin();
-                }
-            } catch (error) {
-                console.error('Erro ao carregar dados do usuário:', error);
-                renderLogin();
-            }
-        }
+      document.getElementById('app').innerHTML = `
+        <div class="min-h-screen bg-gray-50">
+          <header class="bg-white border-b p-4 flex justify-between">
+            <div>
+              <strong>${currentUser.name}</strong><br>
+              <span class="text-sm text-gray-500">Código: ${currentUser.affiliate_code}</span>
+            </div>
+            <button onclick="handleLogout()">Sair</button>
+          </header>
 
-        async function handleLogin() {
-            const email = document.getElementById('loginEmail').value;
-            const password = document.getElementById('loginPassword').value;
+          <main class="p-6 max-w-4xl mx-auto">
+            <div class="mb-6">
+              <h2 class="font-bold mb-2">Seu link principal</h2>
+              <input readonly class="w-full p-3 border rounded"
+                value="https://maiscontrolle.com/precos?aff=${currentUser.affiliate_code}">
+            </div>
 
-            if (!email || !password) {
-                alert('Preencha todos os campos');
-                return;
-            }
+            <button onclick="createNewLink()" class="mb-6 bg-purple-600 text-white px-4 py-2 rounded">
+              Criar novo link
+            </button>
 
-            try {
-                const { data, error } = await supabaseClient.auth.signInWithPassword({ 
-                    email: email, 
-                    password: password 
-                });
-                
-                if (error) throw error;
-                
-                await loadUserData(data.user.id);
-            } catch (error) {
-                alert('Erro ao fazer login: ' + error.message);
-            }
-        }
+            <h2 class="font-bold mb-2">Meus Links</h2>
+            ${links.map(l => `<p class="text-sm">${l.url}</p>`).join('')}
 
-        async function handleRegister() {
-            const name = document.getElementById('registerName').value;
-            const email = document.getElementById('registerEmail').value;
-            const password = document.getElementById('registerPassword').value;
+            <h2 class="font-bold mt-6 mb-2">Minhas Vendas</h2>
+            ${sales.map(s => `<p class="text-sm">${s.product_name} - R$ ${s.commission}</p>`).join('')}
+          </main>
+        </div>
+      `;
+    }
 
-            if (!name || !email || !password) {
-                alert('Preencha todos os campos');
-                return;
-            }
-
-            if (password.length < 6) {
-                alert('A senha deve ter pelo menos 6 caracteres');
-                return;
-            }
-
-            try {
-                const affiliateCode = 'AFF' + Math.random().toString(36).substr(2, 9).toUpperCase();
-                
-                const { data: authData, error: authError } = await supabaseClient.auth.signUp({ 
-                    email: email, 
-                    password: password,
-                    options: {
-                        data: {
-                            name: name
-                        }
-                    }
-                });
-                
-                if (authError) throw authError;
-
-                const { error: insertError } = await supabaseClient.from('affiliates').insert([{
-                    id: authData.user.id,
-                    email: email,
-                    name: name,
-                    affiliate_code: affiliateCode,
-                    is_admin: false
-                }]);
-
-                if (insertError) {
-                    console.error('Erro ao inserir afiliado:', insertError);
-                    throw new Error('Erro ao criar perfil de afiliado');
-                }
-
-                await supabaseClient.from('affiliate_links').insert([{
-                    affiliate_id: authData.user.id,
-                    name: 'Link Principal',
-                    url: 'https://maiscontrolle.com/precos?aff=' + affiliateCode
-                }]);
-
-                alert('Conta criada com sucesso! Faça login para continuar.');
-                showLoginForm();
-            } catch (error) {
-                alert('Erro ao criar conta: ' + error.message);
-                console.error('Erro completo:', error);
-            }
-        }
-
-        async function handleLogout() {
-            try {
-                await supabaseClient.auth.signOut();
-                currentUser = null;
-                renderLogin();
-            } catch (error) {
-                console.error('Erro ao fazer logout:', error);
-            }
-        }
-
-        async function getLinks() {
-            try {
-                const { data, error } = await supabaseClient
-                    .from('affiliate_links')
-                    .select('*')
-                    .eq('affiliate_id', currentUser.id)
-                    .order('created_at', { ascending: false });
-                
-                if (error) throw error;
-                return data || [];
-            } catch (error) {
-                console.error('Erro ao carregar links:', error);
-                return [];
-            }
-        }
-
-        async function getSales() {
-            try {
-                const { data, error } = await supabaseClient
-                    .from('sales')
-                    .select('*')
-                    .eq('affiliate_id', currentUser.id)
-                    .order('created_at', { ascending: false })
-                    .limit(50);
-                
-                if (error) throw error;
-                return data || [];
-            } catch (error) {
-                console.error('Erro ao carregar vendas:', error);
-                return [];
-            }
-        }
-
-        async function getAllAffiliates() {
-            try {
-                const { data, error } = await supabaseClient
-                    .from('affiliates')
-                    .select('*')
-                    .order('created_at', { ascending: false });
-                
-                if (error) throw error;
-                return data || [];
-            } catch (error) {
-                console.error('Erro ao carregar afiliados:', error);
-                return [];
-            }
-        }
-
-        async function getAllSales() {
-            try {
-                const { data, error } = await supabaseClient
-                    .from('sales')
-                    .select('*, affiliates(name, email, affiliate_code)')
-                    .order('created_at', { ascending: false })
-                    .limit(100);
-                
-                if (error) throw error;
-                return data || [];
-            } catch (error) {
-                console.error('Erro ao carregar vendas:', error);
-                return [];
-            }
-        }
-
-        async function createSale() {
-            const affiliateId = prompt('ID do Afiliado:');
-            const productName = prompt('Nome do Produto:');
-            const value = parseFloat(prompt('Valor da Venda:'));
-            const commission = parseFloat(prompt('Comissão (R$):'));
-
-            if (!affiliateId || !productName || !value || !commission) {
-                alert('Preencha todos os campos');
-                return;
-            }
-
-            try {
-                const { error } = await supabaseClient.from('sales').insert([{
-                    affiliate_id: affiliateId,
-                    product_name: productName,
-                    value: value,
-                    commission: commission,
-                    status: 'pending'
-                }]);
-                
-                if (error) throw error;
-                
-                alert('Venda criada com sucesso!');
-                await renderAdminDashboard();
-            } catch (error) {
-                alert('Erro ao criar venda: ' + error.message);
-            }
-        }
-
-        async function approveSale(saleId) {
-            try {
-                const { error } = await supabaseClient
-                    .from('sales')
-                    .update({ status: 'approved' })
-                    .eq('id', saleId);
-                
-                if (error) throw error;
-                
-                alert('Venda aprovada!');
-                await renderAdminDashboard();
-            } catch (error) {
-                alert('Erro ao aprovar venda: ' + error.message);
-            }
-        }
-
-        async function createNewLink() {
-            const name = prompt('Nome do link:');
-            if (!name) return;
-
-            try {
-                const code = 'L' + Math.random().toString(36).substr(2, 6).toUpperCase();
-                const { error } = await supabaseClient.from('affiliate_links').insert([{
-                    affiliate_id: currentUser.id,
-                    name: name,
-                    url: 'https://maiscontrolle.com/precos?aff=' + currentUser.affiliate_code
-                }]);
-                
-                if (error) throw error;
-                
-                alert('Link criado com sucesso!');
-                await renderDashboard();
-            } catch (error) {
-                alert('Erro ao criar link: ' + error.message);
-            }
-        }
-
-        function renderLogin() {
-            document.getElementById('app').innerHTML = `
-                <div class="min-h-screen bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-700 flex items-center justify-center p-4">
-                    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
-                        <div class="text-center mb-8">
-                            <div class="bg-gradient-to-r from-purple-600 to-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                                </svg>
-                            </div>
-                            <h1 class="text-3xl font-bold text-gray-800 mb-2">Portal de Afiliados</h1>
-                            <p class="text-gray-600" id="subtitle">Faça login para acessar seu painel</p>
-                        </div>
-
-                        <div id="loginForm">
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                                    <input type="email" id="loginEmail" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="seu@email.com">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Senha</label>
-                                    <input type="password" id="loginPassword" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="••••••••">
-                                </div>
-                                <button onclick="handleLogin()" class="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-semibold hover:opacity-90 transition">
-                                    Entrar
-                                </button>
-                            </div>
-                            <p class="text-center mt-6 text-gray-600">
-                                Não tem conta? <button onclick="showRegisterForm()" class="text-purple-600 hover:text-purple-700 font-semibold">Cadastre-se</button>
-                            </p>
-                        </div>
-
-                        <div id="registerForm" style="display:none;">
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Nome Completo</label>
-                                    <input type="text" id="registerName" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Seu nome">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                                    <input type="email" id="registerEmail" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="seu@email.com">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Senha</label>
-                                    <input type="password" id="registerPassword" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Mínimo 6 caracteres">
-                                </div>
-                                <button onclick="handleRegister()" class="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-semibold hover:opacity-90 transition">
-                                    Criar Conta
-                                </button>
-                            </div>
-                            <p class="text-center mt-6 text-gray-600">
-                                Já tem conta? <button onclick="showLoginForm()" class="text-purple-600 hover:text-purple-700 font-semibold">Fazer login</button>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        async function renderAdminDashboard() {
-            const affiliates = await getAllAffiliates();
-            const sales = await getAllSales();
-
-            const totalCommissions = sales.reduce((sum, sale) => sum + parseFloat(sale.commission || 0), 0);
-            const pendingCommissions = sales.filter(s => s.status === 'pending').reduce((sum, sale) => sum + parseFloat(sale.commission || 0), 0);
-
-            document.getElementById('app').innerHTML = `
-                <div class="min-h-screen bg-gray-50">
-                    <header class="bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-lg">
-                        <div class="max-w-7xl mx-auto px-4 py-4">
-                            <div class="flex justify-between items-center">
-                                <div>
-                                    <h1 class="text-2xl font-bold">🔐 Painel Administrativo</h1>
-                                    <p class="text-sm opacity-90">Admin: ${currentUser.name}</p>
-                                </div>
-                                <button onclick="handleLogout()" class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition">Sair</button>
-                            </div>
-                        </div>
-                    </header>
-
-                    <div class="max-w-7xl mx-auto px-4 py-8">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                            <div class="bg-white rounded-xl p-6 shadow-sm">
-                                <h3 class="text-gray-600 text-sm mb-1">Total de Afiliados</h3>
-                                <p class="text-3xl font-bold text-gray-800">${affiliates.length}</p>
-                            </div>
-                            <div class="bg-white rounded-xl p-6 shadow-sm">
-                                <h3 class="text-gray-600 text-sm mb-1">Total em Comissões</h3>
-                                <p class="text-3xl font-bold text-gray-800">R$ ${totalCommissions.toFixed(2)}</p>
-                            </div>
-                            <div class="bg-white rounded-xl p-6 shadow-sm">
-                                <h3 class="text-gray-600 text-sm mb-1">Comissões Pendentes</h3>
-                                <p class="text-3xl font-bold text-yellow-600">R$ ${pendingCommissions.toFixed(2)}</p>
-                            </div>
-                        </div>
-
-                        <div class="bg-white rounded-xl p-6 shadow-sm mb-8">
-                            <div class="flex justify-between items-center mb-4">
-                                <h3 class="text-xl font-bold text-gray-800">Afiliados Cadastrados</h3>
-                            </div>
-                            <div class="overflow-x-auto">
-                                <table class="w-full">
-                                    <thead class="bg-gray-50 border-b">
-                                        <tr>
-                                            <th class="px-4 py-3 text-left text-sm font-semibold">Nome</th>
-                                            <th class="px-4 py-3 text-left text-sm font-semibold">Email</th>
-                                            <th class="px-4 py-3 text-left text-sm font-semibold">Código</th>
-                                            <th class="px-4 py-3 text-left text-sm font-semibold">Saldo</th>
-                                            <th class="px-4 py-3 text-left text-sm font-semibold">Cliques</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y">
-                                        ${affiliates.map(aff => `
-                                            <tr class="hover:bg-gray-50">
-                                                <td class="px-4 py-3 text-sm">${aff.name}</td>
-                                                <td class="px-4 py-3 text-sm">${aff.email}</td>
-                                                <td class="px-4 py-3 text-sm font-mono">${aff.affiliate_code}</td>
-                                                <td class="px-4 py-3 text-sm font-bold text-green-600">R$ ${parseFloat(aff.balance || 0).toFixed(2)}</td>
-                                                <td class="px-4 py-3 text-sm">${aff.total_clicks || 0}</td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div class="bg-white rounded-xl p-6 shadow-sm">
-                            <div class="flex justify-between items-center mb-4">
-                                <h3 class="text-xl font-bold text-gray-800">Vendas e Comissões</h3>
-                                <button onclick="createSale()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">+ Criar Venda</button>
-                            </div>
-                            <div class="overflow-x-auto">
-                                <table class="w-full">
-                                    <thead class="bg-gray-50 border-b">
-                                        <tr>
-                                            <th class="px-4 py-3 text-left text-sm font-semibold">Data</th>
-                                            <th class="px-4 py-3 text-left text-sm font-semibold">Afiliado</th>
-                                            <th class="px-4 py-3 text-left text-sm font-semibold">Produto</th>
-                                            <th class="px-4 py-3 text-left text-sm font-semibold">Valor</th>
-                                            <th class="px-4 py-3 text-left text-sm font-semibold">Comissão</th>
-                                            <th class="px-4 py-3 text-left text-sm font-semibold">Status</th>
-                                            <th class="px-4 py-3 text-left text-sm font-semibold">Ação</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y">
-                                        ${sales.map(sale => `
-                                            <tr class="hover:bg-gray-50">
-                                                <td class="px-4 py-3 text-sm">${new Date(sale.created_at).toLocaleDateString('pt-BR')}</td>
-                                                <td class="px-4 py-3 text-sm">${sale.affiliates?.name || 'N/A'}</td>
-                                                <td class="px-4 py-3 text-sm">${sale.product_name}</td>
-                                                <td class="px-4 py-3 text-sm">R$ ${parseFloat(sale.value).toFixed(2)}</td>
-                                                <td class="px-4 py-3 text-sm font-bold text-green-600">R$ ${parseFloat(sale.commission).toFixed(2)}</td>
-                                                <td class="px-4 py-3">
-                                                    <span class="px-3 py-1 rounded-full text-xs font-semibold ${sale.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">
-                                                        ${sale.status === 'approved' ? 'Aprovado' : 'Pendente'}
-                                                    </span>
-                                                </td>
-                                                <td class="px-4 py-3">
-                                                    ${sale.status === 'pending' ? `<button onclick="approveSale('${sale.id}')" class="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">Aprovar</button>` : '-'}
-                                                </td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        async function renderDashboard() {
-            const links = await getLinks();
-            const sales = await getSales();
-
-            const linksHtml = links.length === 0 ? 
-                '<div class="text-center py-8 text-gray-500"><p>Você ainda não criou nenhum link personalizado.</p></div>' :
-                links.map(link => `
-                    <div class="border border-gray-200 rounded-lg p-4 mb-4">
-                        <h4 class="font-semibold text-gray-800 mb-2">${link.name}</h4>
-                        <div class="flex gap-2 mb-4">
-                            <input type="text" readonly value="${link.url}" class="flex-1 px-3 py-2 bg-gray-50 border rounded-lg text-sm" id="link-${link.id}">
-                            <button onclick="copyLink('link-${link.id}')" class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm">Copiar</button>
-                        </div>
-                        <div class="grid grid-cols-3 gap-4 pt-4 border-t">
-                            <div><p class="text-xs text-gray-600">Cliques</p><p class="text-xl font-bold">${link.clicks || 0}</p></div>
-                            <div><p class="text-xs text-gray-600">Conversões</p><p class="text-xl font-bold">${link.conversions || 0}</p></div>
-                            <div><p class="text-xs text-gray-600">Receita</p><p class="text-xl font-bold text-green-600">R$ ${parseFloat(link.revenue || 0).toFixed(2)}</p></div>
-                        </div>
-                    </div>
-                `).join('');
-
-            const salesHtml = sales.length === 0 ?
-                '<div class="text-center py-8 text-gray-500"><p>Nenhuma venda registrada ainda.</p></div>' :
-                '<table class="w-full"><thead class="bg-gray-50 border-b"><tr><th class="px-4 py-3 text-left text-sm font-semibold">Data</th><th class="px-4 py-3 text-left text-sm font-semibold">Produto</th><th class="px-4 py-3 text-left text-sm font-semibold">Comissão</th><th class="px-4 py-3 text-left text-sm font-semibold">Status</th></tr></thead><tbody class="divide-y">' +
-                sales.map(sale => `<tr><td class="px-4 py-3 text-sm">${new Date(sale.created_at).toLocaleDateString('pt-BR')}</td><td class="px-4 py-3 text-sm">${sale.product_name}</td><td class="px-4 py-3 text-sm font-bold text-green-600">R$ ${parseFloat(sale.commission).toFixed(2)}</td><td class="px-4 py-3"><span class="px-3 py-1 rounded-full text-xs font-semibold ${sale.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${sale.status === 'approved' ? 'Aprovado' : 'Pendente'}</span></td></tr>`).join('') + '</tbody></table>';
-
-            document.getElementById('app').innerHTML = `
-                <div class="min-h-screen bg-gray-50">
-                    <header class="bg-white shadow-sm border-b">
-                        <div class="max-w-7xl mx-auto px-4 py-4">
-                            <div class="flex justify-between items-center">
-                                <div>
-                                    <h1 class="text-xl font-bold text-gray-800">Portal de Afiliados</h1>
-                                    <p class="text-sm text-gray-600">${currentUser.name}</p>
-                                </div>
-                                <button onclick="handleLogout()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Sair</button>
-                            </div>
-                        </div>
-                    </header>
-
-                    <div class="max-w-7xl mx-auto px-4 py-8">
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                            <div class="bg-white rounded-xl p-6 shadow-sm">
-                                <h3 class="text-gray-600 text-sm mb-1">Saldo</h3>
-                                <p class="text-3xl font-bold text-gray-800">R$ ${parseFloat(currentUser.balance || 0).toFixed(2)}</p>
-                            </div>
-                            <div class="bg-white rounded-xl p-6 shadow-sm">
-                                <h3 class="text-gray-600 text-sm mb-1">Pendente</h3>
-                                <p class="text-3xl font-bold text-gray-800">R$ ${parseFloat(currentUser.pending_balance || 0).toFixed(2)}</p>
-                            </div>
-                            <div class="bg-white rounded-xl p-6 shadow-sm">
-                                <h3 class="text-gray-600 text-sm mb-1">Cliques</h3>
-                                <p class="text-3xl font-bold text-gray-800">${currentUser.total_clicks || 0}</p>
-                            </div>
-                            <div class="bg-white rounded-xl p-6 shadow-sm">
-                                <h3 class="text-gray-600 text-sm mb-1">Conversões</h3>
-                                <p class="text-3xl font-bold text-gray-800">${currentUser.total_conversions || 0}</p>
-                            </div>
-                        </div>
-
-                        <div class="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl p-6 text-white shadow-lg mb-8">
-                            <h3 class="text-lg font-semibold mb-3">Seu Link de Afiliado Principal</h3>
-                            <div class="flex gap-3">
-                                <input type="text" readonly value="https://maiscontrolle.com/precos?aff=${currentUser.affiliate_code}" class="flex-1 px-4 py-3 bg-white/20 rounded-lg text-white" id="mainLink">
-                                <button onclick="copyLink('mainLink')" class="px-6 py-3 bg-white text-purple-600 rounded-lg font-semibold">Copiar</button>
-                            </div>
-                        </div>
-
-                        <div class="bg-white rounded-xl p-6 shadow-sm mb-8">
-                            <div class="flex justify-between items-center mb-4">
-                                <h3 class="text-lg font-semibold text-gray-800">Meus Links</h3>
-                                <button onclick="createNewLink()" class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold">+ Criar Link</button>
-                            </div>
-                            ${linksHtml}
-                        </div>
-
-                        <div class="bg-white rounded-xl p-6 shadow-sm">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Minhas Vendas</h3>
-                            ${salesHtml}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        function showLoginForm() {
-            document.getElementById('loginForm').style.display = 'block';
-            document.getElementById('registerForm').style.display = 'none';
-            document.getElementById('subtitle').textContent = 'Faça login para acessar seu painel';
-        }
-
-        function showRegisterForm() {
-            document.getElementById('loginForm').style.display = 'none';
-            document.getElementById('registerForm').style.display = 'block';
-            document.getElementById('subtitle').textContent = 'Crie sua conta de afiliado';
-        }
-
-        function copyLink(inputId) {
-            const input = document.getElementById(inputId);
-            input.select();
-            document.execCommand('copy');
-            alert('Link copiado para a área de transferência!');
-        }
-
-        window.addEventListener('DOMContentLoaded', function() {
-            checkAuth();
-        });
-    </script>
+    document.addEventListener('DOMContentLoaded', checkAuth);
+  </script>
 </body>
 </html>
