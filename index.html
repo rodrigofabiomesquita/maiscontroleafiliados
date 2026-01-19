@@ -118,7 +118,7 @@
         .from('affiliates')
         .select('*')
         .eq('user_id', userId)
-        .maybeSingle();
+        .single();
 
       if (error) {
         console.error(error);
