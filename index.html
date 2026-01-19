@@ -76,9 +76,10 @@
       });
 
       if (error) {
-        alert(error.message);
-        return;
-      }
+  console.error(error);
+  alert('Erro ao carregar afiliado. Contate o suporte.');
+  return false;
+}
 
       alert('Conta criada com sucesso. Faça login.');
       renderLogin();
