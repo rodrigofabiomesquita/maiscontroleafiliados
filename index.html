@@ -8,53 +8,43 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
+
+<body class="bg-gray-100">
   <div id="app"></div>
 
   <script>
+    /* ===============================
+       CONFIGURAÇÃO SUPABASE
+    =============================== */
     const SUPABASE_URL = 'https://tmeqnsplfgfmcawdalrp.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtZXFuc3BsZmdmbWNhd2RhbHJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczNjA1MTUsImV4cCI6MjA3MjkzNjUxNX0.mjMx76OplbQ7wZstoP1gOizDYF7PH2Pj-0plvMdBnTU';
+    const SUPABASE_KEY = 'SUA_ANON_KEY_AQUI'; // mantenha a anon key
 
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    let currentUser = null;
+    const supabaseClient = supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_KEY
+    );
 
-    async function checkAuth() {
-      // Aguarda o Supabase restaurar a sessão
-      await new Promise(r => setTimeout(r, 500));
+    let currentAffiliate = null;
 
+    /* ===============================
+       INICIALIZAÇÃO
+    =============================== */
+    document.addEventListener('DOMContentLoaded', () => {
+      init();
+    });
+
+    async function init() {
       const { data } = await supabaseClient.auth.getSession();
-
-      if (!data.session) {
+      if (data.session) {
+        await loadAffiliate(data.session.user.id);
+      } else {
         renderLogin();
-        return;
       }
-
-      loadUserData(data.session.user.id);
     }
 
-    async function loadUserData(userId) {
-  const { data, error } = await supabaseClient
-    .from('affiliates')
-    .select('*')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (error) {
-    console.error('Erro Supabase:', error);
-    alert('Erro ao carregar dados do afiliado.');
-    return;
-  }
-
-  if (!data) {
-    alert('Afiliado ainda não foi criado. Aguarde alguns segundos e recarregue a página.');
-    return;
-  }
-
-  currentUser = data;
-  renderDashboard();
-}
-    }
-
+    /* ===============================
+       AUTENTICAÇÃO
+    =============================== */
     async function handleLogin() {
       const email = document.getElementById('loginEmail').value;
       const password = document.getElementById('loginPassword').value;
@@ -69,7 +59,7 @@
         return;
       }
 
-      checkAuth();
+      await waitAndLoadAffiliate();
     }
 
     async function handleRegister() {
@@ -80,7 +70,9 @@
       const { error } = await supabaseClient.auth.signUp({
         email,
         password,
-        options: { data: { name } }
+        options: {
+          data: { name }
+        }
       });
 
       if (error) {
@@ -94,72 +86,144 @@
 
     async function handleLogout() {
       await supabaseClient.auth.signOut();
-      currentUser = null;
+      currentAffiliate = null;
       renderLogin();
     }
 
-    function renderLogin() {
-      document.getElementById('app').innerHTML = `
-        <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 to-blue-600">
-          <div class="bg-white p-8 rounded-xl w-full max-w-md">
-            <h1 class="text-2xl font-bold text-center mb-6">Portal de Afiliados</h1>
+    /* ===============================
+       CARREGAR AFILIADO (ANTI-LOOP)
+    =============================== */
+    async function waitAndLoadAffiliate() {
+      const { data } = await supabaseClient.auth.getSession();
+      if (!data.session) {
+        renderLogin();
+        return;
+      }
 
-            <input id="loginEmail" class="w-full mb-3 p-3 border rounded" placeholder="Email">
-            <input id="loginPassword" type="password" class="w-full mb-3 p-3 border rounded" placeholder="Senha">
+      let attempts = 0;
 
-            <button onclick="handleLogin()" class="w-full bg-purple-600 text-white py-3 rounded mb-3">Entrar</button>
+      while (attempts < 5) {
+        const success = await loadAffiliate(data.session.user.id);
+        if (success) return;
 
-            <p class="text-center text-sm">
-              Não tem conta?
-              <button onclick="showRegister()" class="text-purple-600">Cadastre-se</button>
-            </p>
-          </div>
-        </div>
-      `;
+        await new Promise(r => setTimeout(r, 800));
+        attempts++;
+      }
+
+      alert('Não foi possível carregar o afiliado. Recarregue a página.');
     }
 
-    function showRegister() {
-      document.getElementById('app').innerHTML = `
-        <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 to-blue-600">
-          <div class="bg-white p-8 rounded-xl w-full max-w-md">
-            <h1 class="text-2xl font-bold text-center mb-6">Criar Conta</h1>
+    async function loadAffiliate(userId) {
+      const { data, error } = await supabaseClient
+        .from('affiliates')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
 
-            <input id="registerName" class="w-full mb-3 p-3 border rounded" placeholder="Nome">
-            <input id="registerEmail" class="w-full mb-3 p-3 border rounded" placeholder="Email">
-            <input id="registerPassword" type="password" class="w-full mb-3 p-3 border rounded" placeholder="Senha">
+      if (error) {
+        console.error(error);
+        return false;
+      }
 
-            <button onclick="handleRegister()" class="w-full bg-purple-600 text-white py-3 rounded mb-3">Criar Conta</button>
+      if (!data) {
+        return false;
+      }
 
-            <p class="text-center text-sm">
-              Já tem conta?
-              <button onclick="renderLogin()" class="text-purple-600">Login</button>
-            </p>
-          </div>
-        </div>
-      `;
+      currentAffiliate = data;
+      renderDashboard();
+      return true;
     }
 
+    /* ===============================
+       DASHBOARD
+    =============================== */
     async function renderDashboard() {
       document.getElementById('app').innerHTML = `
-        <div class="min-h-screen bg-gray-50">
-          <header class="bg-white border-b p-4 flex justify-between">
+        <div class="min-h-screen">
+          <header class="bg-white shadow p-4 flex justify-between">
             <div>
-              <strong>${currentUser.name}</strong><br>
-              <span class="text-sm text-gray-500">Código: ${currentUser.affiliate_code}</span>
+              <strong>${currentAffiliate.name}</strong><br>
+              <span class="text-sm text-gray-500">
+                Código: ${currentAffiliate.affiliate_code}
+              </span>
             </div>
-            <button onclick="handleLogout()">Sair</button>
+            <button onclick="handleLogout()" class="text-red-600">
+              Sair
+            </button>
           </header>
 
-          <main class="p-6 max-w-4xl mx-auto">
-            <h2 class="font-bold mb-2">Seu link</h2>
-            <input readonly class="w-full p-3 border rounded"
-              value="https://maiscontrolle.com/precos?aff=${currentUser.affiliate_code}">
+          <main class="max-w-4xl mx-auto p-6">
+            <h2 class="text-xl font-bold mb-4">Seu link de afiliado</h2>
+
+            <input
+              readonly
+              class="w-full p-3 border rounded mb-6"
+              value="https://maiscontrolle.com/precos?aff=${currentAffiliate.affiliate_code}"
+            />
+
+            <p class="text-sm text-gray-600">
+              Compartilhe este link para ganhar comissões.
+            </p>
           </main>
         </div>
       `;
     }
 
-    document.addEventListener('DOMContentLoaded', checkAuth);
+    /* ===============================
+       TELAS
+    =============================== */
+    function renderLogin() {
+      document.getElementById('app').innerHTML = `
+        <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 to-blue-600">
+          <div class="bg-white p-8 rounded-xl w-full max-w-md">
+            <h1 class="text-2xl font-bold text-center mb-6">
+              Portal de Afiliados
+            </h1>
+
+            <input id="loginEmail" class="w-full mb-3 p-3 border rounded" placeholder="Email">
+            <input id="loginPassword" type="password" class="w-full mb-3 p-3 border rounded" placeholder="Senha">
+
+            <button onclick="handleLogin()" class="w-full bg-purple-600 text-white py-3 rounded mb-3">
+              Entrar
+            </button>
+
+            <p class="text-center text-sm">
+              Não tem conta?
+              <button onclick="renderRegister()" class="text-purple-600">
+                Cadastre-se
+              </button>
+            </p>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderRegister() {
+      document.getElementById('app').innerHTML = `
+        <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 to-blue-600">
+          <div class="bg-white p-8 rounded-xl w-full max-w-md">
+            <h1 class="text-2xl font-bold text-center mb-6">
+              Criar Conta
+            </h1>
+
+            <input id="registerName" class="w-full mb-3 p-3 border rounded" placeholder="Nome">
+            <input id="registerEmail" class="w-full mb-3 p-3 border rounded" placeholder="Email">
+            <input id="registerPassword" type="password" class="w-full mb-3 p-3 border rounded" placeholder="Senha">
+
+            <button onclick="handleRegister()" class="w-full bg-purple-600 text-white py-3 rounded mb-3">
+              Criar Conta
+            </button>
+
+            <p class="text-center text-sm">
+              Já tem conta?
+              <button onclick="renderLogin()" class="text-purple-600">
+                Login
+              </button>
+            </p>
+          </div>
+        </div>
+      `;
+    }
   </script>
 </body>
 </html>
