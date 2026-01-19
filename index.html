@@ -33,19 +33,26 @@
     }
 
     async function loadUserData(userId) {
-      const { data, error } = await supabaseClient
-        .from('affiliates')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
+  const { data, error } = await supabaseClient
+    .from('affiliates')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
 
-      if (error || !data) {
-        alert('Erro ao carregar dados do afiliado.');
-        return;
-      }
+  if (error) {
+    console.error('Erro Supabase:', error);
+    alert('Erro ao carregar dados do afiliado.');
+    return;
+  }
 
-      currentUser = data;
-      renderDashboard();
+  if (!data) {
+    alert('Afiliado ainda não foi criado. Aguarde alguns segundos e recarregue a página.');
+    return;
+  }
+
+  currentUser = data;
+  renderDashboard();
+}
     }
 
     async function handleLogin() {
