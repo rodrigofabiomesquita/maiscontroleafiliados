@@ -2,72 +2,32 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Login — Portal de Afiliados</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — Afiliados</title>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    const supabase = supabase.createClient(
+      "https://SEU-PROJETO.supabase.co",
+      "SUA_PUBLIC_ANON_KEY"
+    );
+  </script>
 </head>
+
 <body>
 
-  <h2>Login</h2>
+<h2>Login</h2>
 
-  <form id="loginForm">
-    <input type="email" id="email" placeholder="Email" required /><br><br>
-    <input type="password" id="password" placeholder="Senha" required /><br><br>
-    <button type="submit">Entrar</button>
-  </form>
+<input id="email" type="email" placeholder="Email" />
+<input id="password" type="password" placeholder="Senha" />
+<button onclick="login()">Entrar</button>
 
-  <p id="error" style="color:red;"></p>
+<script>
+async function login() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
 
-  <script>
-    /* =========================
-       CONFIGURAÇÃO SUPABASE
-    ========================== */
-    const SUPABASE_URL = 'https://tmeqnsplfgfmcawdalrp.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtZXFuc3BsZmdmbWNhd2RhbHJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczNjA1MTUsImV4cCI6MjA3MjkzNjUxNX0.mjMx76OplbQ7wZstoP1gOizDYF7PH2Pj-0plvMdBnTU';
-
-    const supabase = supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_ANON_KEY
-    );
-
-    /* =========================
-       SE JÁ ESTIVER LOGADO
-    ========================== */
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        window.location.href = '/dashboard.html';
-      }
-    })();
-
-    /* =========================
-       LOGIN
-    ========================== */
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) {
-        document.getElementById('error').innerText = error.message;
-        return;
-      }
-
-      if (data.session) {
-        window.location.href = '/dashboard.html';
-      }
-    });
-  </script>
-
-  <script>
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
     password
   });
@@ -78,6 +38,7 @@
   }
 
   window.location.href = "/dashboard.html";
+}
 </script>
 
 </body>
