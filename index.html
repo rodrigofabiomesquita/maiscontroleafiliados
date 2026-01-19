@@ -13,18 +13,23 @@
 
   <script>
     const SUPABASE_URL = 'https://tmeqnsplfgfmcawdalrp.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtZXFuc3BsZmdmbWNhd2RhbHJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczNjA1MTUsImV4cCI6MjA3MjkzNjUxNX0.mjMx76OplbQ7wZstoP1gOizDYF7PH2Pj-0plvMdBnTU';
+    const SUPABASE_KEY = 'SUA_ANON_KEY_AQUI';
 
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     let currentUser = null;
 
     async function checkAuth() {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (session) {
-        await loadUserData(session.user.id);
-      } else {
+      // Aguarda o Supabase restaurar a sessão
+      await new Promise(r => setTimeout(r, 500));
+
+      const { data } = await supabaseClient.auth.getSession();
+
+      if (!data.session) {
         renderLogin();
+        return;
       }
+
+      loadUserData(data.session.user.id);
     }
 
     async function loadUserData(userId) {
@@ -35,7 +40,7 @@
         .single();
 
       if (error || !data) {
-        renderLogin();
+        alert('Erro ao carregar dados do afiliado.');
         return;
       }
 
@@ -47,7 +52,11 @@
       const email = document.getElementById('loginEmail').value;
       const password = document.getElementById('loginPassword').value;
 
-      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      const { error } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password
+      });
+
       if (error) {
         alert(error.message);
         return;
@@ -80,39 +89,6 @@
       await supabaseClient.auth.signOut();
       currentUser = null;
       renderLogin();
-    }
-
-    async function createNewLink() {
-      const name = prompt('Nome do link:');
-      if (!name) return;
-
-      await supabaseClient.from('affiliate_links').insert([{
-        affiliate_id: currentUser.id,
-        name,
-        url: `https://maiscontrolle.com/precos?aff=${currentUser.affiliate_code}`
-      }]);
-
-      renderDashboard();
-    }
-
-    async function getLinks() {
-      const { data } = await supabaseClient
-        .from('affiliate_links')
-        .select('*')
-        .eq('affiliate_id', currentUser.id)
-        .order('created_at', { ascending: false });
-
-      return data || [];
-    }
-
-    async function getSales() {
-      const { data } = await supabaseClient
-        .from('sales')
-        .select('*')
-        .eq('affiliate_id', currentUser.id)
-        .order('created_at', { ascending: false });
-
-      return data || [];
     }
 
     function renderLogin() {
@@ -157,9 +133,6 @@
     }
 
     async function renderDashboard() {
-      const links = await getLinks();
-      const sales = await getSales();
-
       document.getElementById('app').innerHTML = `
         <div class="min-h-screen bg-gray-50">
           <header class="bg-white border-b p-4 flex justify-between">
@@ -171,21 +144,9 @@
           </header>
 
           <main class="p-6 max-w-4xl mx-auto">
-            <div class="mb-6">
-              <h2 class="font-bold mb-2">Seu link principal</h2>
-              <input readonly class="w-full p-3 border rounded"
-                value="https://maiscontrolle.com/precos?aff=${currentUser.affiliate_code}">
-            </div>
-
-            <button onclick="createNewLink()" class="mb-6 bg-purple-600 text-white px-4 py-2 rounded">
-              Criar novo link
-            </button>
-
-            <h2 class="font-bold mb-2">Meus Links</h2>
-            ${links.map(l => `<p class="text-sm">${l.url}</p>`).join('')}
-
-            <h2 class="font-bold mt-6 mb-2">Minhas Vendas</h2>
-            ${sales.map(s => `<p class="text-sm">${s.product_name} - R$ ${s.commission}</p>`).join('')}
+            <h2 class="font-bold mb-2">Seu link</h2>
+            <input readonly class="w-full p-3 border rounded"
+              value="https://maiscontrolle.com/precos?aff=${currentUser.affiliate_code}">
           </main>
         </div>
       `;
