@@ -2,61 +2,41 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Dashboard — Portal de Afiliados</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel do Afiliado</title>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-</head>
-<body>
-
-  <h1>Dashboard</h1>
-  <p id="userEmail"></p>
-  <button id="logout">Sair</button>
 
   <script>
-    /* =========================
-       CONFIGURAÇÃO SUPABASE
-    ========================== */
-    const SUPABASE_URL = 'https://tmeqnsplfgfmcawdalrp.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtZXFuc3BsZmdmbWNhd2RhbHJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczNjA1MTUsImV4cCI6MjA3MjkzNjUxNX0.mjMx76OplbQ7wZstoP1gOizDYF7PH2Pj-0plvMdBnTU';
-
     const supabase = supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_ANON_KEY
+      "https://SEU-PROJETO.supabase.co",
+      "SUA_PUBLIC_ANON_KEY"
     );
-
-    /* =========================
-       BLOQUEIO DE ACESSO
-    ========================== */
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        window.location.href = '/login.html';
-        return;
-      }
-
-      document.getElementById('userEmail').innerText =
-        'Logado como: ' + session.user.email;
-    })();
-
-    /* =========================
-       LOGOUT
-    ========================== */
-    document.getElementById('logout').addEventListener('click', async () => {
-      await supabase.auth.signOut();
-      window.location.href = '/login.html';
-    });
   </script>
+</head>
+
+<body>
+
+<h2>Dashboard</h2>
+<p id="email"></p>
+
+<button onclick="logout()">Sair</button>
 
 <script>
-  const {
-    data: { session }
-  } = await supabase.auth.getSession();
+(async () => {
+  const { data: { session } } = await supabase.auth.getSession();
 
   if (!session) {
     window.location.href = "/login.html";
+    return;
   }
+
+  document.getElementById("email").innerText = session.user.email;
+})();
+
+async function logout() {
+  await supabase.auth.signOut();
+  window.location.href = "/login.html";
+}
 </script>
 
 </body>
