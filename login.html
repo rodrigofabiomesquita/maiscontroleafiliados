@@ -66,5 +66,19 @@
     });
   </script>
 
+  <script>
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  window.location.href = "/dashboard.html";
+</script>
+
 </body>
 </html>
