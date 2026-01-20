@@ -3,13 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <title>Afiliados - Login</title>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
 <h2>Portal de Afiliados</h2>
 
-<input id="name" placeholder="Nome (somente cadastro)">
+<input id="name" placeholder="Nome (cadastro)">
 <br><br>
 <input id="email" placeholder="Email">
 <br><br>
@@ -22,17 +23,22 @@
 <p id="msg"></p>
 
 <script>
-const supabase = supabase.createClient(
-  "https://tmeqnsplfgfmcawdalrp.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtZXFuc3BsZmdmbWNhd2RhbHJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczNjA1MTUsImV4cCI6MjA3MjkzNjUxNX0.mjMx76OplbQ7wZstoP1gOizDYF7PH2Pj-0plvMdBnTU"
+const SUPABASE_URL = "SUA_SUPABASE_URL";
+const SUPABASE_KEY = "SUA_SUPABASE_ANON_KEY";
+
+const client = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
 );
 
 async function register() {
+  msg.innerText = "Cadastrando...";
+
   const name = document.getElementById("name").value;
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  const { data, error } = await supabase.auth.signUp({
+  const { data, error } = await client.auth.signUp({
     email,
     password
   });
@@ -44,21 +50,30 @@ async function register() {
 
   const user = data.user;
 
-  await supabase.from("affiliates").insert({
-    user_id: user.id,
-    name: name,
-    email: email,
-    code: Math.random().toString(36).substring(2, 8)
-  });
+  const { error: insertError } = await client
+    .from("affiliates")
+    .insert({
+      user_id: user.id,
+      name: name,
+      email: email,
+      code: Math.random().toString(36).substring(2, 8)
+    });
+
+  if (insertError) {
+    msg.innerText = insertError.message;
+    return;
+  }
 
   window.location.href = "dashboard.html";
 }
 
 async function login() {
+  msg.innerText = "Entrando...";
+
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { error } = await client.auth.signInWithPassword({
     email,
     password
   });
