@@ -1,108 +1,75 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Portal de Afiliados</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<meta charset="UTF-8">
+<title>Afiliados - Login</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-gray-100">
+<body>
 
-<div id="app" class="min-h-screen flex items-center justify-center"></div>
+<h2>Portal de Afiliados</h2>
+
+<input id="name" placeholder="Nome (somente cadastro)">
+<br><br>
+<input id="email" placeholder="Email">
+<br><br>
+<input id="password" type="password" placeholder="Senha">
+<br><br>
+
+<button onclick="register()">Cadastrar</button>
+<button onclick="login()">Entrar</button>
+
+<p id="msg"></p>
 
 <script>
-const SUPABASE_URL = 'https://tmeqnsplfgfmcawdalrp.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtZXFuc3BsZmdmbWNhd2RhbHJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczNjA1MTUsImV4cCI6MjA3MjkzNjUxNX0.mjMx76OplbQ7wZstoP1gOizDYF7PH2Pj-0plvMdBnTU';
+const supabase = supabase.createClient(
+  "https://tmeqnsplfgfmcawdalrp.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtZXFuc3BsZmdmbWNhd2RhbHJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczNjA1MTUsImV4cCI6MjA3MjkzNjUxNX0.mjMx76OplbQ7wZstoP1gOizDYF7PH2Pj-0plvMdBnTU"
+);
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+async function register() {
+  const name = document.getElementById("name").value;
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
 
-async function init() {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return renderLogin();
-  loadAffiliate(session.user);
-}
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password
+  });
 
-async function loadAffiliate(user) {
-  const { data, error } = await supabase
-    .from('affiliates')
-    .select('*')
-    .eq('user_id', user.id)
-    .single();
-
-  if (error || !data) {
-    return renderCreateAffiliate(user);
+  if (error) {
+    msg.innerText = error.message;
+    return;
   }
 
-  renderDashboard(data);
-}
+  const user = data.user;
 
-function renderLogin() {
-  document.getElementById('app').innerHTML = `
-    <div class="bg-white p-8 rounded shadow w-96">
-      <h1 class="text-xl font-bold mb-4">Login</h1>
-      <input id="email" class="w-full border p-2 mb-2" placeholder="Email">
-      <input id="password" type="password" class="w-full border p-2 mb-4" placeholder="Senha">
-      <button onclick="login()" class="w-full bg-purple-600 text-white py-2 rounded">Entrar</button>
-    </div>`;
+  await supabase.from("affiliates").insert({
+    user_id: user.id,
+    name: name,
+    email: email,
+    code: Math.random().toString(36).substring(2, 8)
+  });
+
+  window.location.href = "dashboard.html";
 }
 
 async function login() {
-  const email = document.getElementById('email').value;
-  const password = document.getElementById('password').value;
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return alert(error.message);
-
-  init();
-}
-
-function renderCreateAffiliate(user) {
-  document.getElementById('app').innerHTML = `
-    <div class="bg-white p-8 rounded shadow w-96">
-      <h1 class="text-xl font-bold mb-4">Criar Perfil de Afiliado</h1>
-      <input id="name" class="w-full border p-2 mb-2" placeholder="Seu nome">
-      <button onclick="createAffiliate('${user.id}', '${user.email}')" class="w-full bg-green-600 text-white py-2 rounded">
-        Criar Perfil
-      </button>
-    </div>`;
-}
-
-async function createAffiliate(userId, email) {
-  const name = document.getElementById('name').value;
-  const code = Math.random().toString(36).substring(2, 10).toUpperCase();
-
-  const { error } = await supabase.from('affiliates').insert({
-    user_id: userId,
-    name,
+  const { error } = await supabase.auth.signInWithPassword({
     email,
-    affiliate_code: code
+    password
   });
 
-  if (error) return alert(error.message);
-  init();
-}
+  if (error) {
+    msg.innerText = error.message;
+    return;
+  }
 
-function renderDashboard(affiliate) {
-  document.getElementById('app').innerHTML = `
-    <div class="bg-white p-8 rounded shadow w-96">
-      <h1 class="text-xl font-bold mb-2">Bem-vindo, ${affiliate.name}</h1>
-      <p class="mb-2">Código:</p>
-      <div class="bg-gray-100 p-2 font-mono mb-4">${affiliate.affiliate_code}</div>
-      <a target="_blank"
-        class="block bg-purple-600 text-white text-center py-2 rounded mb-4"
-        href="https://maiscontrolle.com/precos?aff=${affiliate.affiliate_code}">
-        Acessar link
-      </a>
-      <button onclick="logout()" class="text-sm text-red-600">Sair</button>
-    </div>`;
+  window.location.href = "dashboard.html";
 }
-
-async function logout() {
-  await supabase.auth.signOut();
-  renderLogin();
-}
-
-init();
 </script>
 
 </body>
