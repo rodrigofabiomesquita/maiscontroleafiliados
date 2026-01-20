@@ -1,42 +1,57 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <title>Painel do Afiliado</title>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <script>
-    const supabase = supabase.createClient(
-      "https://SEU-PROJETO.supabase.co",
-      "SUA_PUBLIC_ANON_KEY"
-    );
-  </script>
+<meta charset="UTF-8">
+<title>Dashboard Afiliado</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-
 <body>
 
 <h2>Dashboard</h2>
-<p id="email"></p>
+<p id="status">Carregando...</p>
 
 <button onclick="logout()">Sair</button>
 
 <script>
-(async () => {
-  const { data: { session } } = await supabase.auth.getSession();
+const supabase = supabase.createClient(
+  "SUA_SUPABASE_URL",
+  "SUA_SUPABASE_ANON_KEY"
+);
 
-  if (!session) {
-    window.location.href = "/login.html";
+async function loadAffiliate() {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    window.location.href = "index.html";
     return;
   }
 
-  document.getElementById("email").innerText = session.user.email;
-})();
+  const { data, error } = await supabase
+    .from("affiliates")
+    .select("*")
+    .eq("user_id", user.id)
+    .single();
+
+  if (error) {
+    document.getElementById("status").innerText =
+      "Erro ao carregar afiliado: " + error.message;
+    return;
+  }
+
+  document.getElementById("status").innerHTML = `
+    Nome: ${data.name}<br>
+    Email: ${data.email}<br>
+    Código: ${data.code}<br>
+    Saldo: R$ ${data.balance}
+  `;
+}
 
 async function logout() {
   await supabase.auth.signOut();
-  window.location.href = "/login.html";
+  window.location.href = "index.html";
 }
+
+loadAffiliate();
 </script>
 
 </body>
